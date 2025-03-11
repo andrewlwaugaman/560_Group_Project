@@ -1,0 +1,3 @@
+Use Sequential Feature Selectors for ML Models
+Obviously cross-validate
+Probably look at a lot of SKLearn stuff tbh
