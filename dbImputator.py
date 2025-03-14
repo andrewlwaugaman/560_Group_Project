@@ -2,6 +2,9 @@ import pandas
 import sqlite3
 import numpy as np
 import sklearn
+import sklearn.ensemble
+import sklearn.feature_selection
+import sklearn.impute
 
 conn: sqlite3.Connection = sqlite3.connect('example.db')
 cursor: sqlite3.Cursor = conn.cursor()
@@ -20,6 +23,36 @@ def doSql():
     conn.commit()
     return
 
+def prepData(data: pandas.DataFrame, col: str):
+    cols = data.columns.to_list()
+    cols.remove(col)
+    for colName in data.columns.to_list():
+        if pandas.api.types.is_datetime64_any_dtype(data[colName]):
+            data[colName] = pandas.to_timedelta(data[colName]).dt.total_seconds()
+    numDataExists = True
+    strDataExists = True
+    print(data[cols].select_dtypes(exclude="number").columns)
+    if len(data[cols].select_dtypes(exclude="number").columns) > 0:
+        numImp = sklearn.impute.SimpleImputer()
+        numData = numImp.fit_transform(data[cols].select_dtypes(include="number"))
+    else:
+        numDataExists = False
+    if len(data[cols].select_dtypes(exclude="number").columns) > 0:
+        stringImp = sklearn.impute.SimpleImputer(strategy="most_frequent")
+        strData = stringImp.fit_transform(data[cols].select_dtypes(exclude="number"))
+    else:
+        strDataExists = False
+    if numDataExists and strDataExists:
+        dataJoined = np.concat([numData, strData], axis=1)
+    elif numDataExists:
+        dataJoined = numData
+    elif strDataExists:
+        dataJoined = strData
+    else:
+        return None
+    print(dataJoined)
+    return dataJoined
+
 def doImputation():
     print("Table names:")
     listOfTablesTups = cursor.execute("SELECT tbl_name FROM sqlite_master WHERE type='table'").fetchall()
@@ -31,6 +64,7 @@ def doImputation():
     if userInput not in listOfTables:
         print("Table not found.")
         return
+    tableName = userInput
     listOfColsTups = cursor.execute("select name from pragma_table_info('" + userInput + "') as tblInfo;").fetchall()
     listOfCols = []
     for col in listOfColsTups:
@@ -40,7 +74,27 @@ def doImputation():
     if userInput not in listOfCols:
         print("Column not found.")
         return
-    userInput = input("Select imputation option:\n")
+    colName = userInput
+
+    table = pandas.read_sql_query(sql="SELECT * FROM " + tableName + ";", con=conn, coerce_float=True)
+    for idx, col in enumerate(listOfCols):
+        table.rename(index={idx: col})
+    print(table.dtypes)
+    colType = table.dtypes[colName]
+    otherCols = table.columns.to_list()
+    otherCols.remove(colName)
+    preppedData = prepData(table, colName)
+    if pandas.api.types.is_any_real_numeric_dtype(colType):
+        return
+    else:
+        forestClf = sklearn.ensemble.RandomForestClassifier(n_estimators=16)
+        notNullData = table.dropna(axis=0, subset=[colName])
+        print(notNullData)
+        trainData = notNullData[otherCols]
+        forestClf.fit(trainData.to_numpy(), notNullData[colName].to_numpy())
+        table[colName] = table.apply(lambda x: forestClf.predict(x[otherCols].to_numpy().reshape(1, -1))[0] if x[colName] is None else x[colName], axis=1)
+        print(table)
+        return
     return
 
 def setUpExample():
@@ -133,7 +187,7 @@ def main():
                    + "1. Perform SQL query\n"
                    + "2. Perform imputation\n"
                    + "3. Set up example DB\n"
-                   + "4. CSV to table\n"
+                   + "4. CSV to table (dates don't work and get converted to strings)\n"
                    + "5. Delete data from column\n"
                    + "6. Exit\n")
     userInput = input(queryString)

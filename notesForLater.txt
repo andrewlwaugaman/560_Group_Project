@@ -1,3 +1,4 @@
 Use Sequential Feature Selectors for ML Models
 Obviously cross-validate
 Probably look at a lot of SKLearn stuff tbh
+Look at make_classification (combined with removing some of the data) for testing effectiveness
