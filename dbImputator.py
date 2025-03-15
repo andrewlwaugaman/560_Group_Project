@@ -5,6 +5,7 @@ import sklearn
 import sklearn.ensemble
 import sklearn.feature_selection
 import sklearn.impute
+import sklearn.preprocessing
 
 conn: sqlite3.Connection = sqlite3.connect('example.db')
 cursor: sqlite3.Cursor = conn.cursor()
@@ -23,35 +24,80 @@ def doSql():
     conn.commit()
     return
 
-def prepData(data: pandas.DataFrame, col: str):
+def prepData(data: pandas.DataFrame, colName: str) -> tuple[np.ndarray, np.ndarray]:
+    nullData = data[data[colName] is None or np.isnan(data[colName])]
+    notNullData = data.dropna(axis=0, subset=[colName])
     cols = data.columns.to_list()
-    cols.remove(col)
+    cols.remove(colName)
     for colName in data.columns.to_list():
         if pandas.api.types.is_datetime64_any_dtype(data[colName]):
             data[colName] = pandas.to_timedelta(data[colName]).dt.total_seconds()
     numDataExists = True
     strDataExists = True
-    print(data[cols].select_dtypes(exclude="number").columns)
-    if len(data[cols].select_dtypes(exclude="number").columns) > 0:
+    if len(data[cols].select_dtypes(include="number").columns) > 0:
         numImp = sklearn.impute.SimpleImputer()
-        numData = numImp.fit_transform(data[cols].select_dtypes(include="number"))
+        numNullData = numImp.fit_transform(nullData[cols].select_dtypes(include="number"))
+        numNotNullData = numImp.fit_transform(notNullData[cols].select_dtypes(include="number"))
     else:
         numDataExists = False
     if len(data[cols].select_dtypes(exclude="number").columns) > 0:
         stringImp = sklearn.impute.SimpleImputer(strategy="most_frequent")
-        strData = stringImp.fit_transform(data[cols].select_dtypes(exclude="number"))
+        strNullData = stringImp.fit_transform(nullData[cols].select_dtypes(exclude="number"))
+        strNotNullData = stringImp.fit_transform(notNullData[cols].select_dtypes(exclude="number"))
+        numberedStrNotNullData = None
+        numberedStrNullData = None
+        for col in strNotNullData.T:
+            classSet = list(set(col))
+            classSet.sort()
+            if len(classSet) > 5:
+                labelEncoder = sklearn.preprocessing.LabelEncoder()
+                labelEncoder.fit(classSet)
+                numberedCol = labelEncoder.transform(col.reshape(1, -1))
+            else:
+                oneHotEncoder = sklearn.preprocessing.OneHotEncoder(sparse_output=False)
+                classes = []
+                for cName in classSet:
+                    classes.append([cName])
+                oneHotEncoder.fit(classes)
+                numberedCol = oneHotEncoder.transform(col.reshape(-1, 1))
+                print(numberedCol)
+            if numberedStrNotNullData is not None:
+                numberedStrNotNullData = np.concat(numberedStrNotNullData, numberedCol)
+            else:
+                numberedStrNotNullData = numberedCol
+        for col in strNullData.T:
+            classSet = list(set(col))
+            classSet.sort()
+            if len(classSet) > 5:
+                labelEncoder = sklearn.preprocessing.LabelEncoder()
+                labelEncoder.fit(classSet)
+                numberedCol = labelEncoder.transform(col.reshape(1, -1))
+            else:
+                oneHotEncoder = sklearn.preprocessing.OneHotEncoder(sparse_output=False)
+                classes = []
+                for cName in classSet:
+                    classes.append([cName])
+                oneHotEncoder.fit(classes)
+                numberedCol = oneHotEncoder.transform(col.reshape(-1, 1))
+                print(numberedCol)
+            if numberedStrNullData is not None:
+                numberedStrNullData = np.concat(numberedStrNullData, numberedCol)
+            else:
+                numberedStrNullData = numberedCol
     else:
         strDataExists = False
     if numDataExists and strDataExists:
-        dataJoined = np.concat([numData, strData], axis=1)
+        dataJoined = np.concat([numNotNullData, numberedStrNotNullData], axis=1)
+        nullDataJoined = np.concat([numNullData, numberedStrNullData], axis=1)
     elif numDataExists:
-        dataJoined = numData
+        dataJoined = numNotNullData
+        nullDataJoined = numNullData
     elif strDataExists:
-        dataJoined = strData
+        dataJoined = numberedStrNotNullData
+        nullDataJoined = numNotNullData
     else:
         return None
-    print(dataJoined)
-    return dataJoined
+    return (dataJoined, nullDataJoined)
 
 def doImputation():
     print("Table names:")
@@ -83,17 +129,23 @@ def doImputation():
     colType = table.dtypes[colName]
     otherCols = table.columns.to_list()
     otherCols.remove(colName)
-    preppedData = prepData(table, colName)
+    notNullData = table.dropna(axis=0, subset=[colName])
+    preppedData, preppedNullData = prepData(table, colName)
     if pandas.api.types.is_any_real_numeric_dtype(colType):
+        forestClf = sklearn.ensemble.RandomForestRegressor(n_estimators=16)
+        #print(preppedData)
+        forestClf.fit(preppedData, notNullData[colName].to_numpy())
+        preds = forestClf.predict(preppedNullData)
+        #table.to_sql(tableName, conn, if_exists="replace", index=False)
+        print(preds)
         return
     else:
         forestClf = sklearn.ensemble.RandomForestClassifier(n_estimators=16)
-        notNullData = table.dropna(axis=0, subset=[colName])
-        print(notNullData)
-        trainData = notNullData[otherCols]
-        forestClf.fit(trainData.to_numpy(), notNullData[colName].to_numpy())
-        table[colName] = table.apply(lambda x: forestClf.predict(x[otherCols].to_numpy().reshape(1, -1))[0] if x[colName] is None else x[colName], axis=1)
-        print(table)
+        #print(preppedData)
+        forestClf.fit(preppedData, notNullData[colName].to_numpy())
+        preds = forestClf.predict(preppedNullData)
+        #table.to_sql(tableName, conn, if_exists="replace", index=False)
+        print(preds)
         return
     return
 
@@ -159,7 +211,7 @@ def deleteFromCol():
     elif userInput == "2":
         print()
     elif userInput == "3":
-        table[colName] = table.apply(lambda x: x[colName] if gen.random() < 0.9 else None, axis=1)
+        table[colName] = table.apply(lambda x: x[colName] if gen.random() < 0.9 else np.nan, axis=1)
     else:
         print("Option not recognized.")
     
