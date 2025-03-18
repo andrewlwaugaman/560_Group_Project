@@ -6,6 +6,7 @@ import sklearn.ensemble
 import sklearn.feature_selection
 import sklearn.impute
 import sklearn.preprocessing
+import csv
 
 conn: sqlite3.Connection = sqlite3.connect('example.db')
 cursor: sqlite3.Cursor = conn.cursor()
@@ -222,8 +223,19 @@ def deleteFromCol():
     return
 
 def csvToTable(tableName: str, filePath: str):
-    with open(filePath, newline='') as csvfile:
+    with open(filePath, newline='', encoding="utf8") as csvfile:
         data = pandas.read_csv(csvfile)
+        print(data)
+        print(data.dtypes)
+        for name, vals in data.items():
+            if pandas.api.types.is_string_dtype(vals):
+                try:
+                    dateVals = pandas.to_datetime(vals, errors="raise", format="mixed")
+                except:
+                    pass
+                else:
+                    data[name] = dateVals
+        print(data)
         print(data.dtypes)
         data.to_sql(name=tableName, if_exists="replace", con=conn, index=False)
     return
@@ -239,7 +251,7 @@ def main():
                    + "1. Perform SQL query\n"
                    + "2. Perform imputation\n"
                    + "3. Set up example DB\n"
-                   + "4. CSV to table (dates don't work and get converted to strings)\n"
+                   + "4. CSV to table (dates can be finnicky)\n"
                    + "5. Delete data from column\n"
                    + "6. Exit\n")
     userInput = input(queryString)
