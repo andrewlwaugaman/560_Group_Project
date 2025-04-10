@@ -39,8 +39,9 @@ def prepData(data: pandas.DataFrame, colName: str) -> tuple[np.ndarray, np.ndarr
     strDataExists = True
     if len(data[cols].select_dtypes(include="number").columns) > 0:
         numImp = sklearn.impute.SimpleImputer()
-        numNullData = numImp.fit_transform(nullData[cols].select_dtypes(include="number"))
-        numNotNullData = numImp.fit_transform(notNullData[cols].select_dtypes(include="number"))
+        scaler = sklearn.preprocessing.StandardScaler()
+        numNullData = scaler.fit_transform(numImp.fit_transform(nullData[cols].select_dtypes(include="number")))
+        numNotNullData = scaler.fit_transform(numImp.fit_transform(notNullData[cols].select_dtypes(include="number")))
     else:
         numDataExists = False
     if len(data[cols].select_dtypes(exclude="number").columns) > 0:
