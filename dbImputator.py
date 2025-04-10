@@ -5,6 +5,8 @@ import sklearn
 import sklearn.ensemble
 import sklearn.feature_selection
 import sklearn.impute
+import sklearn.linear_model
+import sklearn.model_selection
 import sklearn.preprocessing
 import csv
 
@@ -26,7 +28,7 @@ def doSql():
     return
 
 def prepData(data: pandas.DataFrame, colName: str) -> tuple[np.ndarray, np.ndarray]:
-    nullData = data[data[colName] is None or np.isnan(data[colName])]
+    nullData = data[pandas.isna(data[colName])]
     notNullData = data.dropna(axis=0, subset=[colName])
     cols = data.columns.to_list()
     cols.remove(colName)
@@ -123,7 +125,7 @@ def doImputation():
         return
     colName = userInput
 
-    table = pandas.read_sql_query(sql="SELECT * FROM " + tableName + ";", con=conn, coerce_float=True)
+    table = pandas.read_sql_query(sql="SELECT * FROM \'" + tableName + "\';", con=conn, coerce_float=True)
     for idx, col in enumerate(listOfCols):
         table.rename(index={idx: col})
     print(table.dtypes)
@@ -131,21 +133,40 @@ def doImputation():
     otherCols = table.columns.to_list()
     otherCols.remove(colName)
     notNullData = table.dropna(axis=0, subset=[colName])
+    if len(notNullData) == len(table):
+        print("There are no missing values to imputate.")
+        return
     preppedData, preppedNullData = prepData(table, colName)
     if pandas.api.types.is_any_real_numeric_dtype(colType):
-        forestClf = sklearn.ensemble.RandomForestRegressor(n_estimators=16)
+        lassoReg = sklearn.linear_model.Lasso(0.1)
         #print(preppedData)
-        forestClf.fit(preppedData, notNullData[colName].to_numpy())
-        preds = forestClf.predict(preppedNullData)
-        #table.to_sql(tableName, conn, if_exists="replace", index=False)
+        lassoReg.fit(preppedData, notNullData[colName].to_numpy())
+        print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(lassoReg, preppedData, notNullData[colName].to_numpy())))
+        preds = lassoReg.predict(preppedNullData)
+        predNum = 0
+        for idx, entry in enumerate(table[colName]):
+            if pandas.isna(entry):
+                table.at[idx, colName] = preds[predNum]
+                predNum+=1
+        table.to_sql(tableName, conn, if_exists="replace", index=False)
         print(preds)
         return
     else:
-        forestClf = sklearn.ensemble.RandomForestClassifier(n_estimators=16)
+        forestClf = sklearn.ensemble.RandomForestClassifier(n_estimators=128)
         #print(preppedData)
         forestClf.fit(preppedData, notNullData[colName].to_numpy())
+        print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(forestClf, preppedData, notNullData[colName].to_numpy())))
         preds = forestClf.predict(preppedNullData)
-        #table.to_sql(tableName, conn, if_exists="replace", index=False)
+        predNum = 0
+        for idx, entry in enumerate(table[colName]):
+            if pandas.isna(entry):
+                print()
+                print(entry)
+                print(table.at[idx, colName])
+                table.at[idx, colName] = preds[predNum]
+                print(table.at[idx, colName])
+                predNum+=1
+        table.to_sql(tableName, conn, if_exists="replace", index=False)
         print(preds)
         return
     return
@@ -188,7 +209,7 @@ def deleteFromCol():
         return
     colName = userInput
 
-    table = pandas.read_sql_query(sql="SELECT * FROM " + tableName + ";", con=conn, coerce_float=True)
+    table = pandas.read_sql_query(sql="SELECT * FROM \'" + tableName + "\';", con=conn, coerce_float=True)
     for idx, col in enumerate(listOfCols):
         table.rename(index={idx: col})
     print(table)
@@ -206,15 +227,15 @@ def deleteFromCol():
             return
         gen = np.random.default_rng(seed)
     
-    userInput = input("How should data be deleted? ONLY 3 IMPLEMENTED CURRENTLY\n1. Missing at random\n2. Missing not at random\n3. Missing completely at random\n")
-    if userInput == "1":
-        print()
-    elif userInput == "2":
-        print()
-    elif userInput == "3":
-        table[colName] = table.apply(lambda x: x[colName] if gen.random() < 0.9 else np.nan, axis=1)
-    else:
-        print("Option not recognized.")
+    #userInput = input("How should data be deleted? ONLY 3 IMPLEMENTED CURRENTLY\n1. Missing at random\n2. Missing not at random\n3. Missing completely at random\n")
+    #if userInput == "1":
+    #    print()
+    #elif userInput == "2":
+    #    print()
+    #elif userInput == "3":
+    table[colName] = table.apply(lambda x: x[colName] if gen.random() < 0.9 else np.nan, axis=1)
+    #else:
+    #    print("Option not recognized.")
     
     table.to_sql(name=tableName, if_exists="replace", con=conn, index=False)
     print(table)
