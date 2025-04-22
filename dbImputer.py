@@ -10,6 +10,8 @@ import sklearn.model_selection
 import sklearn.preprocessing
 import csv
 
+import sklearn.svm
+
 conn: sqlite3.Connection = sqlite3.connect('example.db')
 cursor: sqlite3.Cursor = conn.cursor()
 
@@ -103,6 +105,15 @@ def prepData(data: pandas.DataFrame, colName: str) -> tuple[np.ndarray, np.ndarr
         return None
     return (dataJoined, nullDataJoined)
 
+def imputeData(model, preppedNull, table, tableName, colName):
+    preds = model.predict(preppedNull)
+    predNum = 0
+    for idx, entry in enumerate(table[colName]):
+        if pandas.isna(entry):
+            table.at[idx, colName] = preds[predNum]
+            predNum+=1
+    table.to_sql(tableName, conn, if_exists="replace", index=False)
+
 def doImputation():
     print("Table names:")
     listOfTablesTups = cursor.execute("SELECT tbl_name FROM sqlite_master WHERE type='table'").fetchall()
@@ -138,25 +149,70 @@ def doImputation():
         print("There are no missing values to imputate.")
         return
     preppedData, preppedNullData = prepData(table, colName)
-    if pandas.api.types.is_any_real_numeric_dtype(colType):
-        lassoReg = sklearn.linear_model.Lasso(0.1)
-        #print(preppedData)
-        lassoReg.fit(preppedData, notNullData[colName].to_numpy())
-        print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(lassoReg, preppedData, notNullData[colName].to_numpy())))
-        preds = lassoReg.predict(preppedNullData)
-        predNum = 0
-        for idx, entry in enumerate(table[colName]):
-            if pandas.isna(entry):
-                table.at[idx, colName] = preds[predNum]
-                predNum+=1
-        table.to_sql(tableName, conn, if_exists="replace", index=False)
-        print(preds)
+    numpyData = notNullData[colName].to_numpy()
+
+    if pandas.api.types.is_any_real_numeric_dtype(colType): #Regression
+        if len(table) > 10000:
+            sgd = sklearn.linear_model.SGDRegressor(max_iter=1000, alpha=0.0001, learning_rate='invscaling')
+            sgd.fit(preppedData, numpyData)
+            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                sgd, preppedData, numpyData)))
+            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+            if impute:
+                imputeData(sgd, preppedNullData, table, tableName, colName)
+        else:
+            fewFeatures = input("Do you think that many of the other columns are unimportant?\n1. Yes\nOther. No\n")
+            if fewFeatures:
+                lassoReg = sklearn.linear_model.LassoCV(0.1, cv=5)
+                lassoReg.fit(preppedData, numpyData)
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    lassoReg, preppedData, numpyData)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(lassoReg, preppedNullData, table, tableName, colName)
+                    return
+                elasticNet = sklearn.linear_model.ElasticNetCV(alpha=0.5, l1_ratio=0.7, cv=5)
+                elasticNet.fit(preppedData, numpyData)
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    elasticNet, preppedData, numpyData)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(elasticNet, preppedNullData, table, tableName, colName)
+                    return
+            else:
+                ridgeReg = sklearn.linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0], cv=5)
+                ridgeReg.fit(preppedData, numpyData)
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    ridgeReg, preppedData, numpyData)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(ridgeReg, preppedNullData, table, tableName, colName)
+                    return
+                svrLinear = sklearn.svm.SVR(kernel='linear')
+                svrLinear.fit(preppedData, numpyData)
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    svrLinear, preppedData, numpyData)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(svrLinear, preppedNullData, table, tableName, colName)
+                    return
+                svrLinear = sklearn.svm.SVR(kernel='rbf')
+                svrLinear.fit(preppedData, numpyData)
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    svrLinear, preppedData, numpyData)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(svrLinear, preppedNullData, table, tableName, colName)
+                    return
+            
         return
-    else:
+    
+    else: #Classification
         forestClf = sklearn.ensemble.RandomForestClassifier(n_estimators=128)
         #print(preppedData)
-        forestClf.fit(preppedData, notNullData[colName].to_numpy())
-        print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(forestClf, preppedData, notNullData[colName].to_numpy())))
+        forestClf.fit(preppedData, numpyData)
+        print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+            forestClf, preppedData, numpyData)))
         preds = forestClf.predict(preppedNullData)
         predNum = 0
         for idx, entry in enumerate(table[colName]):
