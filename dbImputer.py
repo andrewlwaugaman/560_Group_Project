@@ -148,61 +148,61 @@ def doImputation():
     if len(notNullData) == len(table):
         print("There are no missing values to imputate.")
         return
-    preppedData, preppedNullData = prepData(table, colName)
-    numpyData = notNullData[colName].to_numpy()
+    preppedFeatures, preppedNullFeatures = prepData(table, colName)
+    preppedLabels = notNullData[colName].to_numpy()
 
     if pandas.api.types.is_any_real_numeric_dtype(colType): #Regression
-        if len(table) > 10000:
+        if len(preppedFeatures) > 10000:
             sgd = sklearn.linear_model.SGDRegressor(max_iter=1000, alpha=0.0001, learning_rate='invscaling')
-            sgd.fit(preppedData, numpyData)
+            sgd.fit(preppedFeatures, preppedLabels)
             print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                sgd, preppedData, numpyData)))
+                sgd, preppedFeatures, preppedLabels)))
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(sgd, preppedNullData, table, tableName, colName)
+                imputeData(sgd, preppedNullFeatures, table, tableName, colName)
         else:
             fewFeatures = input("Do you think that many of the other columns are unimportant?\n1. Yes\nOther. No\n")
             if fewFeatures:
                 lassoReg = sklearn.linear_model.LassoCV(0.1, cv=5)
-                lassoReg.fit(preppedData, numpyData)
+                lassoReg.fit(preppedFeatures, preppedLabels)
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    lassoReg, preppedData, numpyData)))
+                    lassoReg, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(lassoReg, preppedNullData, table, tableName, colName)
+                    imputeData(lassoReg, preppedNullFeatures, table, tableName, colName)
                     return
                 elasticNet = sklearn.linear_model.ElasticNetCV(alpha=0.5, l1_ratio=0.7, cv=5)
-                elasticNet.fit(preppedData, numpyData)
+                elasticNet.fit(preppedFeatures, preppedLabels)
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    elasticNet, preppedData, numpyData)))
+                    elasticNet, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(elasticNet, preppedNullData, table, tableName, colName)
+                    imputeData(elasticNet, preppedNullFeatures, table, tableName, colName)
                     return
             else:
                 ridgeReg = sklearn.linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0], cv=5)
-                ridgeReg.fit(preppedData, numpyData)
+                ridgeReg.fit(preppedFeatures, preppedLabels)
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    ridgeReg, preppedData, numpyData)))
+                    ridgeReg, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(ridgeReg, preppedNullData, table, tableName, colName)
+                    imputeData(ridgeReg, preppedNullFeatures, table, tableName, colName)
                     return
                 svrLinear = sklearn.svm.SVR(kernel='linear')
-                svrLinear.fit(preppedData, numpyData)
+                svrLinear.fit(preppedFeatures, preppedLabels)
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    svrLinear, preppedData, numpyData)))
+                    svrLinear, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(svrLinear, preppedNullData, table, tableName, colName)
+                    imputeData(svrLinear, preppedNullFeatures, table, tableName, colName)
                     return
                 svrLinear = sklearn.svm.SVR(kernel='rbf')
-                svrLinear.fit(preppedData, numpyData)
+                svrLinear.fit(preppedFeatures, preppedLabels)
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    svrLinear, preppedData, numpyData)))
+                    svrLinear, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(svrLinear, preppedNullData, table, tableName, colName)
+                    imputeData(svrLinear, preppedNullFeatures, table, tableName, colName)
                     return
             
         return
@@ -210,21 +210,12 @@ def doImputation():
     else: #Classification
         forestClf = sklearn.ensemble.RandomForestClassifier(n_estimators=128)
         #print(preppedData)
-        forestClf.fit(preppedData, numpyData)
+        forestClf.fit(preppedFeatures, preppedLabels)
         print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-            forestClf, preppedData, numpyData)))
-        preds = forestClf.predict(preppedNullData)
-        predNum = 0
-        for idx, entry in enumerate(table[colName]):
-            if pandas.isna(entry):
-                print()
-                print(entry)
-                print(table.at[idx, colName])
-                table.at[idx, colName] = preds[predNum]
-                print(table.at[idx, colName])
-                predNum+=1
-        table.to_sql(tableName, conn, if_exists="replace", index=False)
-        print(preds)
+            forestClf, preppedFeatures, preppedLabels)))
+        impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+        if impute:
+            imputeData(forestClf, preppedNullFeatures, table, tableName, colName)
         return
     return
 
