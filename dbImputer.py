@@ -1,6 +1,6 @@
-import pandas
 import sqlite3
 import numpy as np
+import pandas
 import sklearn
 import sklearn.ensemble
 import sklearn.feature_selection
@@ -8,9 +8,8 @@ import sklearn.impute
 import sklearn.linear_model
 import sklearn.model_selection
 import sklearn.preprocessing
-import csv
-
 import sklearn.svm
+import csv
 
 conn: sqlite3.Connection = sqlite3.connect('example.db')
 cursor: sqlite3.Cursor = conn.cursor()
@@ -163,7 +162,7 @@ def doImputation():
         else:
             fewFeatures = input("Do you think that many of the other columns are unimportant?\n1. Yes\nOther. No\n")
             if fewFeatures:
-                lassoReg = sklearn.linear_model.LassoCV(0.1, cv=5)
+                lassoReg = sklearn.linear_model.LassoCV(cv=5)
                 lassoReg.fit(preppedFeatures, preppedLabels)
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
                     lassoReg, preppedFeatures, preppedLabels)))
@@ -171,7 +170,7 @@ def doImputation():
                 if impute:
                     imputeData(lassoReg, preppedNullFeatures, table, tableName, colName)
                     return
-                elasticNet = sklearn.linear_model.ElasticNetCV(alpha=0.5, l1_ratio=0.7, cv=5)
+                elasticNet = sklearn.linear_model.ElasticNetCV(l1_ratio=0.7, cv=5)
                 elasticNet.fit(preppedFeatures, preppedLabels)
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
                     elasticNet, preppedFeatures, preppedLabels)))
@@ -196,13 +195,13 @@ def doImputation():
                 if impute:
                     imputeData(svrLinear, preppedNullFeatures, table, tableName, colName)
                     return
-                svrLinear = sklearn.svm.SVR(kernel='rbf')
-                svrLinear.fit(preppedFeatures, preppedLabels)
+                svrRbf = sklearn.svm.SVR(kernel='rbf')
+                svrRbf.fit(preppedFeatures, preppedLabels)
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    svrLinear, preppedFeatures, preppedLabels)))
+                    svrRbf, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(svrLinear, preppedNullFeatures, table, tableName, colName)
+                    imputeData(svrRbf, preppedNullFeatures, table, tableName, colName)
                     return
             
         return
