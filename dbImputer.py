@@ -217,6 +217,7 @@ def doImputation():
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
                 imputeData(sgdClass, preppedNullFeatures, table, tableName, colName)
+                return
 
             kernel = sklearn.kernel_approximation.RBFSampler(gamma=1, random_state=1)
             kernel.fit(preppedFeatures, preppedLabels)
@@ -225,6 +226,7 @@ def doImputation():
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
                 imputeData(kernel, preppedNullFeatures, table, tableName, colName)
+                return
         else:
             linearSVC = sklearn.svm.LinearSVC()
             #print(preppedData)
@@ -234,6 +236,7 @@ def doImputation():
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
                 imputeData(linearSVC, preppedNullFeatures, table, tableName, colName)
+                return
             
             knn = sklearn.neighbors.KNeighborsClassifier()
             #print(preppedData)
@@ -243,6 +246,7 @@ def doImputation():
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
                 imputeData(knn, preppedNullFeatures, table, tableName, colName)
+                return
             
             svc = sklearn.svm.SVC()
             #print(preppedData)
@@ -252,7 +256,7 @@ def doImputation():
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
                 imputeData(svc, preppedNullFeatures, table, tableName, colName)
-        return
+                return
     return
 
 def setUpExample():
