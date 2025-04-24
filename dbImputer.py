@@ -5,8 +5,10 @@ import sklearn
 import sklearn.ensemble
 import sklearn.feature_selection
 import sklearn.impute
+import sklearn.kernel_approximation
 import sklearn.linear_model
 import sklearn.model_selection
+import sklearn.neighbors
 import sklearn.preprocessing
 import sklearn.svm
 import csv
@@ -207,14 +209,49 @@ def doImputation():
         return
     
     else: #Classification
-        forestClf = sklearn.ensemble.RandomForestClassifier(n_estimators=128)
-        #print(preppedData)
-        forestClf.fit(preppedFeatures, preppedLabels)
-        print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-            forestClf, preppedFeatures, preppedLabels)))
-        impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
-        if impute:
-            imputeData(forestClf, preppedNullFeatures, table, tableName, colName)
+        if len(preppedFeatures) > 10000:
+            sgdClass = sklearn.linear_model.SGDClassifier(max_iter=1000, alpha=0.0001, learning_rate='invscaling')
+            sgdClass.fit(preppedFeatures, preppedLabels)
+            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                sgdClass, preppedFeatures, preppedLabels)))
+            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+            if impute:
+                imputeData(sgdClass, preppedNullFeatures, table, tableName, colName)
+
+            kernel = sklearn.kernel_approximation.RBFSampler(gamma=1, random_state=1)
+            kernel.fit(preppedFeatures, preppedLabels)
+            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                kernel, preppedFeatures, preppedLabels)))
+            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+            if impute:
+                imputeData(kernel, preppedNullFeatures, table, tableName, colName)
+        else:
+            linearSVC = sklearn.svm.LinearSVC()
+            #print(preppedData)
+            linearSVC.fit(preppedFeatures, preppedLabels)
+            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                linearSVC, preppedFeatures, preppedLabels)))
+            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+            if impute:
+                imputeData(linearSVC, preppedNullFeatures, table, tableName, colName)
+            
+            knn = sklearn.neighbors.KNeighborsClassifier()
+            #print(preppedData)
+            knn.fit(preppedFeatures, preppedLabels)
+            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                knn, preppedFeatures, preppedLabels)))
+            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+            if impute:
+                imputeData(knn, preppedNullFeatures, table, tableName, colName)
+            
+            svc = sklearn.svm.SVC()
+            #print(preppedData)
+            svc.fit(preppedFeatures, preppedLabels)
+            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                svc, preppedFeatures, preppedLabels)))
+            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+            if impute:
+                imputeData(svc, preppedNullFeatures, table, tableName, colName)
         return
     return
 
