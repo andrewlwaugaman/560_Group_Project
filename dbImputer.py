@@ -106,13 +106,17 @@ def prepData(data: pandas.DataFrame, colName: str) -> tuple[np.ndarray, np.ndarr
         return None
     return (dataJoined, nullDataJoined)
 
-def imputeData(model, preppedNull, table, tableName, colName):
+def imputeData(model, preppedNull, table, tableName, colName, intFlag):
     preds = model.predict(preppedNull)
     predNum = 0
     for idx, entry in enumerate(table[colName]):
         if pandas.isna(entry):
-            table.at[idx, colName] = preds[predNum]
-            predNum+=1
+            if intFlag:
+                table.at[idx, colName] = round(preds[predNum])
+                predNum+=1
+            else:
+                table.at[idx, colName] = preds[predNum]
+                predNum+=1
     table.to_sql(tableName, conn, if_exists="replace", index=False)
 
 def doImputation():
@@ -153,6 +157,7 @@ def doImputation():
     preppedLabels = notNullData[colName].to_numpy()
 
     if pandas.api.types.is_any_real_numeric_dtype(colType): #Regression
+        intFlag = (input("Does the column store int values?\n1. Yes\nOther. No\n") == "1")
         if len(preppedFeatures) > 10000:
             sgd = sklearn.linear_model.SGDRegressor(max_iter=1000, alpha=0.0001, learning_rate='invscaling')
             sgd.fit(preppedFeatures, preppedLabels)
@@ -160,7 +165,7 @@ def doImputation():
                 sgd, preppedFeatures, preppedLabels)))
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(sgd, preppedNullFeatures, table, tableName, colName)
+                imputeData(sgd, preppedNullFeatures, table, tableName, colName, intFlag)
         else:
             fewFeatures = input("Do you think that many of the other columns are unimportant?\n1. Yes\nOther. No\n")
             if fewFeatures:
@@ -170,7 +175,7 @@ def doImputation():
                     lassoReg, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(lassoReg, preppedNullFeatures, table, tableName, colName)
+                    imputeData(lassoReg, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
                 elasticNet = sklearn.linear_model.ElasticNetCV(l1_ratio=0.7, cv=5)
                 elasticNet.fit(preppedFeatures, preppedLabels)
@@ -178,7 +183,7 @@ def doImputation():
                     elasticNet, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(elasticNet, preppedNullFeatures, table, tableName, colName)
+                    imputeData(elasticNet, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
             else:
                 ridgeReg = sklearn.linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0], cv=5)
@@ -187,7 +192,7 @@ def doImputation():
                     ridgeReg, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(ridgeReg, preppedNullFeatures, table, tableName, colName)
+                    imputeData(ridgeReg, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
                 svrLinear = sklearn.svm.SVR(kernel='linear')
                 svrLinear.fit(preppedFeatures, preppedLabels)
@@ -195,7 +200,7 @@ def doImputation():
                     svrLinear, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(svrLinear, preppedNullFeatures, table, tableName, colName)
+                    imputeData(svrLinear, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
                 svrRbf = sklearn.svm.SVR(kernel='rbf')
                 svrRbf.fit(preppedFeatures, preppedLabels)
@@ -203,7 +208,7 @@ def doImputation():
                     svrRbf, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(svrRbf, preppedNullFeatures, table, tableName, colName)
+                    imputeData(svrRbf, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
             
         return
@@ -216,7 +221,7 @@ def doImputation():
                 sgdClass, preppedFeatures, preppedLabels)))
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(sgdClass, preppedNullFeatures, table, tableName, colName)
+                imputeData(sgdClass, preppedNullFeatures, table, tableName, colName, False)
                 return
 
             kernel = sklearn.kernel_approximation.RBFSampler(gamma=1, random_state=1)
@@ -225,7 +230,7 @@ def doImputation():
                 kernel, preppedFeatures, preppedLabels)))
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(kernel, preppedNullFeatures, table, tableName, colName)
+                imputeData(kernel, preppedNullFeatures, table, tableName, colName, False)
                 return
         else:
             linearSVC = sklearn.svm.LinearSVC()
@@ -235,7 +240,7 @@ def doImputation():
                 linearSVC, preppedFeatures, preppedLabels)))
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(linearSVC, preppedNullFeatures, table, tableName, colName)
+                imputeData(linearSVC, preppedNullFeatures, table, tableName, colName, False)
                 return
             
             knn = sklearn.neighbors.KNeighborsClassifier()
@@ -245,7 +250,7 @@ def doImputation():
                 knn, preppedFeatures, preppedLabels)))
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(knn, preppedNullFeatures, table, tableName, colName)
+                imputeData(knn, preppedNullFeatures, table, tableName, colName, False)
                 return
             
             svc = sklearn.svm.SVC()
@@ -255,7 +260,7 @@ def doImputation():
                 svc, preppedFeatures, preppedLabels)))
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(svc, preppedNullFeatures, table, tableName, colName)
+                imputeData(svc, preppedNullFeatures, table, tableName, colName, False)
                 return
     return
 
