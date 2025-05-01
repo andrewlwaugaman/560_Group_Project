@@ -2,8 +2,6 @@ import sqlite3
 import numpy as np
 import pandas
 import sklearn
-import sklearn.ensemble
-import sklearn.feature_selection
 import sklearn.datasets
 import sklearn.impute
 import sklearn.kernel_approximation
@@ -12,7 +10,6 @@ import sklearn.model_selection
 import sklearn.neighbors
 import sklearn.preprocessing
 import sklearn.svm
-import csv
 
 conn: sqlite3.Connection = sqlite3.connect('example.db')
 cursor: sqlite3.Cursor = conn.cursor()
