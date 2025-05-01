@@ -157,108 +157,183 @@ def doImputation():
     preppedFeatures, preppedNullFeatures = prepData(table, colName)
     preppedLabels = notNullData[colName].to_numpy()
 
+    bestModel = None
+    bestModelChanged = False
+    bestCvalAvg = 0
+    bestCvalScores: np.ndarray
+
     if pandas.api.types.is_any_real_numeric_dtype(colType): #Regression
         intFlag = (input("Does the column store int values?\n1. Yes\nOther. No\n") == "1")
         if len(preppedFeatures) > 10000:
-            sgd = sklearn.linear_model.SGDRegressor(max_iter=1000, alpha=0.0001, learning_rate='invscaling')
-            sgd.fit(preppedFeatures, preppedLabels)
-            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                sgd, preppedFeatures, preppedLabels)))
+            for i in [0.00001, 0.0001, 0.001]:
+                sgd = sklearn.linear_model.SGDRegressor(max_iter=1000, alpha=i, learning_rate='invscaling')
+                sgd.fit(preppedFeatures, preppedLabels)
+                cvalScores = sklearn.model_selection.cross_val_score(sgd, preppedFeatures, preppedLabels)
+                cvalAvg = np.mean(cvalScores)
+                if cvalAvg > bestCvalAvg:
+                    bestCvalAvg = cvalAvg
+                    bestModel = sgd
+                    bestCvalScores = cvalScores
+            print("Cross Val Scores: " + bestCvalScores)
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(sgd, preppedNullFeatures, table, tableName, colName, intFlag)
+                imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
         else:
             fewFeatures = input("Do you think that many of the other columns are unimportant?\n1. Yes\nOther. No\n")
             if fewFeatures:
                 lassoReg = sklearn.linear_model.LassoCV(cv=5)
                 lassoReg.fit(preppedFeatures, preppedLabels)
-                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    lassoReg, preppedFeatures, preppedLabels)))
+                cvals = sklearn.model_selection.cross_val_score(lassoReg, preppedFeatures, preppedLabels)
+                print("Cross Val Scores: " + cvals)
+                bestCvalAvg = np.mean(cvals)
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
                     imputeData(lassoReg, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
                 elasticNet = sklearn.linear_model.ElasticNetCV(l1_ratio=0.7, cv=5)
                 elasticNet.fit(preppedFeatures, preppedLabels)
-                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    elasticNet, preppedFeatures, preppedLabels)))
-                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
-                if impute:
-                    imputeData(elasticNet, preppedNullFeatures, table, tableName, colName, intFlag)
-                    return
+                cvals = sklearn.model_selection.cross_val_score(elasticNet, preppedFeatures, preppedLabels)
+                if np.mean(cvals) > bestCvalAvg:
+                    print("Cross Val Scores: " + cvals)
+                    impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                    if impute:
+                        imputeData(elasticNet, preppedNullFeatures, table, tableName, colName, intFlag)
+                        return
             else:
                 ridgeReg = sklearn.linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0], cv=5)
                 ridgeReg.fit(preppedFeatures, preppedLabels)
-                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    ridgeReg, preppedFeatures, preppedLabels)))
+                cvals = sklearn.model_selection.cross_val_score(ridgeReg, preppedFeatures, preppedLabels)
+                bestCvalAvg = np.mean(cvals)
+                print("Cross Val Scores: " + str(cvals))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
                     imputeData(ridgeReg, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
-                svrLinear = sklearn.svm.SVR(kernel='linear')
-                svrLinear.fit(preppedFeatures, preppedLabels)
+                for i in [0.1, 1, 10]:
+                    svrLinear = sklearn.svm.SVR(kernel='linear', C=i)
+                    svrLinear.fit(preppedFeatures, preppedLabels)
+                    cvalScores = sklearn.model_selection.cross_val_score(svrLinear, preppedFeatures, preppedLabels)
+                    cvalAvg = np.mean(cvalScores)
+                    if cvalAvg > bestCvalAvg:
+                        bestCvalAvg = cvalAvg
+                        bestModel = svrLinear
+                        bestCvalScores = cvalScores
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                    svrLinear, preppedFeatures, preppedLabels)))
+                    bestModel, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
                     imputeData(svrLinear, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
-                svrRbf = sklearn.svm.SVR(kernel='rbf')
-                svrRbf.fit(preppedFeatures, preppedLabels)
+                
+                bestModelChanged = False
+                for i in [0.1, 1, 10]:
+                    svrRbf = sklearn.svm.SVR(kernel='rbf')
+                    svrRbf.fit(preppedFeatures, preppedLabels)
+                    cvalScores = sklearn.model_selection.cross_val_score(svrRbf, preppedFeatures, preppedLabels)
+                    cvalAvg = np.mean(cvalScores)
+                    if cvalAvg > bestCvalAvg:
+                        bestCvalAvg = cvalAvg
+                        bestModel = svrRbf
+                        bestCvalScores = cvalScores
+                        bestModelChanged = True
                 print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
                     svrRbf, preppedFeatures, preppedLabels)))
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
                 if impute:
-                    imputeData(svrRbf, preppedNullFeatures, table, tableName, colName, intFlag)
+                    imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
         return
     
     else: #Classification
         if len(preppedFeatures) > 10000:
-            sgdClass = sklearn.linear_model.SGDClassifier(max_iter=1000, alpha=0.0001, learning_rate='invscaling')
-            sgdClass.fit(preppedFeatures, preppedLabels)
-            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                sgdClass, preppedFeatures, preppedLabels)))
+            for i in [0.00001, 0.0001, 0.001]:
+                sgdClass = sklearn.linear_model.SGDClassifier(max_iter=1000, alpha=i, learning_rate='invscaling')
+                sgdClass.fit(preppedFeatures, preppedLabels)
+                cvalScores = sklearn.model_selection.cross_val_score(sgdClass, preppedFeatures, preppedLabels)
+                cvalAvg = np.mean(cvalScores)
+                if cvalAvg > bestCvalAvg:
+                    bestCvalAvg = cvalAvg
+                    bestModel = sgdClass
+                    bestCvalScores = cvalScores
+            print("Cross Val Scores: " + bestCvalScores)
             impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
             if impute:
-                imputeData(sgdClass, preppedNullFeatures, table, tableName, colName, False)
+                imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
                 return
 
-            kernel = sklearn.kernel_approximation.RBFSampler(gamma=1, random_state=1)
-            kernel.fit(preppedFeatures, preppedLabels)
-            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                kernel, preppedFeatures, preppedLabels)))
-            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
-            if impute:
-                imputeData(kernel, preppedNullFeatures, table, tableName, colName, False)
-                return
+            for i in [0.1, 1, 10]:
+                kernel = sklearn.kernel_approximation.RBFSampler(gamma=i, random_state=1)
+                kernel.fit(preppedFeatures, preppedLabels)
+                cvalScores = sklearn.model_selection.cross_val_score(kernel, preppedFeatures, preppedLabels)
+                cvalAvg = np.mean(cvalScores)
+                if cvalAvg > bestCvalAvg:
+                    bestCvalAvg = cvalAvg
+                    bestModel = kernel
+                    bestCvalScores = cvalScores
+                    bestModelChanged = True
+            if bestModelChanged:
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    bestModel, preppedFeatures, preppedLabels)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
+                    return
         else:
-            linearSVC = sklearn.svm.LinearSVC()
-            linearSVC.fit(preppedFeatures, preppedLabels)
-            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                linearSVC, preppedFeatures, preppedLabels)))
-            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
-            if impute:
-                imputeData(linearSVC, preppedNullFeatures, table, tableName, colName, False)
-                return
+            for i in [0.1, 1, 10]:
+                linearSVC = sklearn.svm.LinearSVC(C=i)
+                linearSVC.fit(preppedFeatures, preppedLabels)
+                cvalScores = sklearn.model_selection.cross_val_score(linearSVC, preppedFeatures, preppedLabels)
+                cvalAvg = np.mean(cvalScores)
+                if cvalAvg > bestCvalAvg:
+                    bestCvalAvg = cvalAvg
+                    bestModel = linearSVC
+                    bestCvalScores = cvalScores
+                    bestModelChanged = True
+            if bestModelChanged:
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    bestModel, preppedFeatures, preppedLabels)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
+                    return
+            bestModelChanged = False
+
+            for i in [4, 8, 16]:
+                knn = sklearn.neighbors.KNeighborsClassifier(n_neighbors=i)
+                knn.fit(preppedFeatures, preppedLabels)
+                cvalScores = sklearn.model_selection.cross_val_score(knn, preppedFeatures, preppedLabels)
+                cvalAvg = np.mean(cvalScores)
+                if cvalAvg > bestCvalAvg:
+                    bestCvalAvg = cvalAvg
+                    bestModel = knn
+                    bestCvalScores = cvalScores
+                    bestModelChanged = True
+            if bestModelChanged:
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    bestModel, preppedFeatures, preppedLabels)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
+                    return
+            bestModelChanged = False
             
-            knn = sklearn.neighbors.KNeighborsClassifier()
-            knn.fit(preppedFeatures, preppedLabels)
-            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                knn, preppedFeatures, preppedLabels)))
-            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
-            if impute:
-                imputeData(knn, preppedNullFeatures, table, tableName, colName, False)
-                return
-            
-            svc = sklearn.svm.SVC()
-            svc.fit(preppedFeatures, preppedLabels)
-            print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
-                svc, preppedFeatures, preppedLabels)))
-            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
-            if impute:
-                imputeData(svc, preppedNullFeatures, table, tableName, colName, False)
-                return
+            for i in [0.1, 1, 10]:
+                svc = sklearn.svm.SVC(C=i)
+                svc.fit(preppedFeatures, preppedLabels)
+                cvalScores = sklearn.model_selection.cross_val_score(svc, preppedFeatures, preppedLabels)
+                cvalAvg = np.mean(cvalScores)
+                if cvalAvg > bestCvalAvg:
+                    bestCvalAvg = cvalAvg
+                    bestModel = svc
+                    bestCvalScores = cvalScores
+                    bestModelChanged = True
+            if bestModelChanged:
+                print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
+                    bestModel, preppedFeatures, preppedLabels)))
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                if impute:
+                    imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
+                    return
     return
 
 def sklearnToTable(dataset: int):
@@ -284,11 +359,25 @@ def setUpExample():
     for table in listOfTables:
         cursor.execute("DROP TABLE \'" + table[0] + "\'")
         conn.commit()
-    userInput = input("Options:\n1. Mendota/Monona Days\n2. Iris Dataset\n")
+    userInput = input('''Options:\n
+                      1. Mendota/Monona Days\n
+                      2. Iris Dataset\n
+                      3. Breast Cancer
+                      4. Diabetes
+                      5. Digits
+                      6. Wine''')
     if userInput == "1":
         csvToTable("Ice Days", "./mendotaMonona.csv")
     elif userInput == "2":
         csvToTable("Iris", "./iris-3.csv")
+    elif userInput == "3":
+        sklearnToTable(0)
+    elif userInput == "4":
+        sklearnToTable(1)
+    elif userInput == "5":
+        sklearnToTable(2)
+    elif userInput == "6":
+        sklearnToTable(3)
     else:
         print("Option not recognized.")
     return
