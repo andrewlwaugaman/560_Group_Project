@@ -164,7 +164,7 @@ def doImputation():
 
     classFlag = True
     if pandas.api.types.is_any_real_numeric_dtype(colType):
-        classFlag = input("Should the numbers be treated as class labels? (1 or 0 for example)\n1. Yes\nOther. No\n") == "1"
+        classFlag = input("Should the numbers be treated as class labels?\n1. Yes\nOther. No\n") == "1"
 
     if not classFlag: #Regression
         intFlag = (input("Does the column store int values?\n1. Yes\nOther. No\n") == "1")
