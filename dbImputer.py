@@ -266,7 +266,7 @@ def doImputation():
                         imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
                         return
                     
-        useBest = input("All models have been attemped. Use the best found?\n1. Yes\nOther. No") == "1"
+        useBest = input("All models have been attemped. Use the best found?\n1. Yes\nOther. No\n") == "1"
         if useBest:
             imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
         return
@@ -341,7 +341,7 @@ def doImputation():
                     bestCvals = cvals
                     bestModelChanged = True
             if bestModelChanged:
-                print("Cross Val Scores: " + str(bestCvals))
+                print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                 if impute:
                     imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
@@ -360,13 +360,13 @@ def doImputation():
                     bestCvals = cvals
                     bestModelChanged = True
             if bestModelChanged:
-                print("Cross Val Scores: " + str(bestCvals))
+                print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
                 impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                 if impute:
                     imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
                     return
                     
-        useBest = input("All models have been attemped. Use the best found?\n1. Yes\nOther. No") == "1"
+        useBest = input("All models have been attemped. Use the best found?\n1. Yes\nOther. No\n") == "1"
         if useBest:
             imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
         return
