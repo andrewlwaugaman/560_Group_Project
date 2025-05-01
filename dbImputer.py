@@ -127,7 +127,7 @@ def doImputation():
     for table in listOfTablesTups:
         listOfTables.append(table[0])
     print(listOfTables)
-    userInput = input("Input table to imputate.\n")
+    userInput = input("Input table to impute.\n")
     if userInput not in listOfTables:
         print("Table not found.")
         return
@@ -137,7 +137,7 @@ def doImputation():
     for col in listOfColsTups:
         listOfCols.append(col[0])
     print("Columns:\n" + str(listOfCols))
-    userInput = input("Select column to imputate.\n")
+    userInput = input("Select column to impute.\n")
     if userInput not in listOfCols:
         print("Column not found.")
         return
@@ -350,6 +350,9 @@ def sklearnToTable(dataset: int):
     elif dataset == 2:
         tableName = "Wine"
         data = sklearn.datasets.load_wine(as_frame=True).frame
+    elif dataset == 3:
+        tableName = "Breast Cancer"
+        data = sklearn.datasets.load_breast_cancer(as_frame=True).frame
     data.to_sql(name=tableName, if_exists="replace", con=conn, index=False)
 
 def setUpExample():
@@ -362,7 +365,8 @@ def setUpExample():
                       "2. Iris Dataset\n" + 
                       "3. Diabetes\n" + 
                       "4. Digits\n" + 
-                      "5. Wine\n")
+                      "5. Wine\n" + 
+                      "6. Breast Cancer\n")
     if userInput == "1":
         csvToTable("Ice Days", "./mendotaMonona.csv")
     elif userInput == "2":
@@ -373,6 +377,8 @@ def setUpExample():
         sklearnToTable(1)
     elif userInput == "5":
         sklearnToTable(2)
+    elif userInput == "6":
+        sklearnToTable(3)
     else:
         print("Option not recognized.")
     return
