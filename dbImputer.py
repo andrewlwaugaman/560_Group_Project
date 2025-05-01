@@ -4,6 +4,7 @@ import pandas
 import sklearn
 import sklearn.ensemble
 import sklearn.feature_selection
+import sklearn.datasets
 import sklearn.impute
 import sklearn.kernel_approximation
 import sklearn.linear_model
@@ -210,7 +211,6 @@ def doImputation():
                 if impute:
                     imputeData(svrRbf, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
-            
         return
     
     else: #Classification
@@ -234,7 +234,6 @@ def doImputation():
                 return
         else:
             linearSVC = sklearn.svm.LinearSVC()
-            #print(preppedData)
             linearSVC.fit(preppedFeatures, preppedLabels)
             print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
                 linearSVC, preppedFeatures, preppedLabels)))
@@ -244,7 +243,6 @@ def doImputation():
                 return
             
             knn = sklearn.neighbors.KNeighborsClassifier()
-            #print(preppedData)
             knn.fit(preppedFeatures, preppedLabels)
             print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
                 knn, preppedFeatures, preppedLabels)))
@@ -254,7 +252,6 @@ def doImputation():
                 return
             
             svc = sklearn.svm.SVC()
-            #print(preppedData)
             svc.fit(preppedFeatures, preppedLabels)
             print("Cross Val Scores: " + str(sklearn.model_selection.cross_val_score(
                 svc, preppedFeatures, preppedLabels)))
@@ -263,6 +260,24 @@ def doImputation():
                 imputeData(svc, preppedNullFeatures, table, tableName, colName, False)
                 return
     return
+
+def sklearnToTable(dataset: int):
+    tableName = ""
+    data: pandas.DataFrame
+    match dataset:
+        case 0:
+            tableName = "Breast Cancer"
+            data = sklearn.datasets.load_breast_cancer(as_frame=True)
+        case 1:
+            tableName = "Diabetes"
+            data = sklearn.datasets.load_diabetes(as_frame=True)
+        case 2:
+            tableName = "Digits"
+            data = sklearn.datasets.load_digits(as_frame=True)
+        case 3:
+            tableName = "Wine"
+            data = sklearn.datasets.load_wine(as_frame=True)
+    data.to_sql(name=tableName, if_exists="replace", con=conn, index=False)
 
 def setUpExample():
     listOfTables = cursor.execute("SELECT tbl_name FROM sqlite_master WHERE type='table'").fetchall()
