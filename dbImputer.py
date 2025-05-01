@@ -168,8 +168,12 @@ def doImputation():
 
     if not classFlag: #Regression
         intFlag = (input("Does the column store int values?\n1. Yes\nOther. No\n") == "1")
+
+        print("\nBeginning model selection.\n")
+
         if len(preppedFeatures) > 10000:
             for i in [0.00001, 0.0001, 0.001]:
+                print("Attempting SGD...")
                 sgd = sklearn.linear_model.SGDRegressor(max_iter=1000, alpha=i, learning_rate='invscaling')
                 sgd.fit(preppedFeatures, preppedLabels)
                 cvals = sklearn.model_selection.cross_val_score(sgd, preppedFeatures, preppedLabels)
@@ -179,41 +183,53 @@ def doImputation():
                     bestModel = sgd
                     bestCvals = cvals
             print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
-            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
             if impute:
                 imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
         else:
             fewFeatures = input("Do you think that many of the other columns are unimportant?\n1. Yes\nOther. No\n")
             if fewFeatures:
+                print("Attempting LASSO...")
                 lassoReg = sklearn.linear_model.LassoCV(cv=5)
                 lassoReg.fit(preppedFeatures, preppedLabels)
                 cvals = sklearn.model_selection.cross_val_score(lassoReg, preppedFeatures, preppedLabels)
                 bestCvalAvg = np.mean(cvals)
-                print("Cross Val Scores: " + str(cvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
-                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                bestCvals = cvals
+                bestModel = lassoReg
+                print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                 if impute:
-                    imputeData(lassoReg, preppedNullFeatures, table, tableName, colName, intFlag)
+                    imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
+                
+                print("Attempting Elastic Net...")
                 elasticNet = sklearn.linear_model.ElasticNetCV(l1_ratio=0.7, cv=5)
                 elasticNet.fit(preppedFeatures, preppedLabels)
                 cvals = sklearn.model_selection.cross_val_score(elasticNet, preppedFeatures, preppedLabels)
                 if np.mean(cvals) > bestCvalAvg:
-                    print("Cross Val Scores: " + str(cvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
-                    impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                    bestCvals = cvals
+                    bestCvalAvg = np.mean(cvals)
+                    bestModel = elasticNet
+                    print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
+                    impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                     if impute:
-                        imputeData(elasticNet, preppedNullFeatures, table, tableName, colName, intFlag)
+                        imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
                         return
             else:
+                print("Attempting Ridge Regression...")
                 ridgeReg = sklearn.linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0], cv=5)
                 ridgeReg.fit(preppedFeatures, preppedLabels)
                 cvals = sklearn.model_selection.cross_val_score(ridgeReg, preppedFeatures, preppedLabels)
+                bestCvals = cvals
                 bestCvalAvg = np.mean(cvals)
-                print("Cross Val Scores: " + str(cvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
-                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                bestModel = ridgeReg
+                print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                 if impute:
-                    imputeData(ridgeReg, preppedNullFeatures, table, tableName, colName, intFlag)
+                    imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
                     return
                 bestModelChanged = False
+                print("Attempting Linear SVR...")
                 for i in [0.1, 1, 10]:
                     svrLinear = sklearn.svm.SVR(kernel='linear', C=i, max_iter=10000)
                     svrLinear.fit(preppedFeatures, preppedLabels)
@@ -225,13 +241,14 @@ def doImputation():
                         bestCvals = cvals
                         bestModelChanged = True
                 if bestModelChanged:
-                    print("Cross Val Scores: " + str(bestCvals))
-                    impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                    print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
+                    impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                     if impute:
-                        imputeData(svrLinear, preppedNullFeatures, table, tableName, colName, intFlag)
+                        imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
                         return
                 
                 bestModelChanged = False
+                print("Attempting RBF SVR...")
                 for i in [0.1, 1, 10]:
                     svrRbf = sklearn.svm.SVR(kernel='rbf', C=i, max_iter=10000)
                     svrRbf.fit(preppedFeatures, preppedLabels)
@@ -243,15 +260,23 @@ def doImputation():
                         bestCvals = cvals
                         bestModelChanged = True
                 if bestModelChanged:
-                    print("Cross Val Scores: " + str(bestCvals))
-                    impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                    print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
+                    impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                     if impute:
                         imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
                         return
+                    
+        useBest = input("All models have been attemped. Use the best found?\n1. Yes\nOther. No") == "1"
+        if useBest:
+            imputeData(bestModel, preppedNullFeatures, table, tableName, colName, intFlag)
         return
     
     else: #Classification
+
+        print("\nBeginning model selection.\n")
+
         if len(preppedFeatures) > 10000:
+            print("Attempting SGD classifier...")
             for i in [0.00001, 0.0001, 0.001]:
                 sgdClass = sklearn.linear_model.SGDClassifier(max_iter=1000, alpha=i, learning_rate='invscaling')
                 sgdClass.fit(preppedFeatures, preppedLabels)
@@ -261,12 +286,13 @@ def doImputation():
                     bestCvalAvg = cvalAvg
                     bestModel = sgdClass
                     bestCvals = cvals
-            print("Cross Val Scores: " + str(bestCvals))
-            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+            print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
+            impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
             if impute:
                 imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
                 return
 
+            print("Attempting kernel classifier...")
             for i in [0.1, 1, 10]:
                 kernel = sklearn.kernel_approximation.RBFSampler(gamma=i, random_state=1)
                 kernel.fit(preppedFeatures, preppedLabels)
@@ -278,12 +304,13 @@ def doImputation():
                     bestCvals = cvals
                     bestModelChanged = True
             if bestModelChanged:
-                print("Cross Val Scores: " + str(bestCvals))
-                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                 if impute:
                     imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
                     return
         else:
+            print("Attempting Linear SVC classifier...")
             for i in [0.1, 1, 10]:
                 linearSVC = sklearn.svm.LinearSVC(C=i)
                 linearSVC.fit(preppedFeatures, preppedLabels)
@@ -295,13 +322,14 @@ def doImputation():
                     bestCvals = cvals
                     bestModelChanged = True
             if bestModelChanged:
-                print("Cross Val Scores: " + str(bestCvals))
-                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                print("Cross Val Scores: " + str(bestCvals) + "\nAverage: " + str(bestCvalAvg) + "\n")
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                 if impute:
                     imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
                     return
             bestModelChanged = False
 
+            print("Attempting KNN classifier...")
             for i in [4, 8, 16]:
                 knn = sklearn.neighbors.KNeighborsClassifier(n_neighbors=i)
                 knn.fit(preppedFeatures, preppedLabels)
@@ -314,12 +342,13 @@ def doImputation():
                     bestModelChanged = True
             if bestModelChanged:
                 print("Cross Val Scores: " + str(bestCvals))
-                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                 if impute:
                     imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
                     return
             bestModelChanged = False
             
+            print("Attempting SVC classifier...")
             for i in [0.1, 1, 10]:
                 svc = sklearn.svm.SVC(C=i, max_iter=10000)
                 svc.fit(preppedFeatures, preppedLabels)
@@ -332,11 +361,15 @@ def doImputation():
                     bestModelChanged = True
             if bestModelChanged:
                 print("Cross Val Scores: " + str(bestCvals))
-                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n")
+                impute = input("Is this acceptable for this data?\n1. Yes\nOther. No\n") == "1"
                 if impute:
                     imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
                     return
-    return
+                    
+        useBest = input("All models have been attemped. Use the best found?\n1. Yes\nOther. No") == "1"
+        if useBest:
+            imputeData(bestModel, preppedNullFeatures, table, tableName, colName, False)
+        return
 
 def sklearnToTable(dataset: int):
     tableName = ""
