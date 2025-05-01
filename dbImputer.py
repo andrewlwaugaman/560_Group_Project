@@ -68,7 +68,7 @@ def prepData(data: pandas.DataFrame, colName: str) -> tuple[np.ndarray, np.ndarr
                     classes.append([cName])
                 oneHotEncoder.fit(classes)
                 numberedCol = oneHotEncoder.transform(col.reshape(-1, 1))
-                print(numberedCol)
+                #print(numberedCol)
             if numberedStrNotNullData is not None:
                 numberedStrNotNullData = np.concat(numberedStrNotNullData, numberedCol)
             else:
@@ -87,7 +87,7 @@ def prepData(data: pandas.DataFrame, colName: str) -> tuple[np.ndarray, np.ndarr
                     classes.append([cName])
                 oneHotEncoder.fit(classes)
                 numberedCol = oneHotEncoder.transform(col.reshape(-1, 1))
-                print(numberedCol)
+                #print(numberedCol)
             if numberedStrNullData is not None:
                 numberedStrNullData = np.concat(numberedStrNullData, numberedCol)
             else:
@@ -146,7 +146,7 @@ def doImputation():
     table = pandas.read_sql_query(sql="SELECT * FROM \'" + tableName + "\';", con=conn, coerce_float=True)
     for idx, col in enumerate(listOfCols):
         table.rename(index={idx: col})
-    print(table.dtypes)
+    #print(table.dtypes)
     colType = table.dtypes[colName]
     otherCols = table.columns.to_list()
     otherCols.remove(colName)
@@ -443,9 +443,9 @@ def deleteFromCol():
     table = pandas.read_sql_query(sql="SELECT * FROM \'" + tableName + "\';", con=conn, coerce_float=True)
     for idx, col in enumerate(listOfCols):
         table.rename(index={idx: col})
-    print(table)
-    print(table.dtypes)
-    print(colName)
+    #print(table)
+    #print(table.dtypes)
+    #print(colName)
     userInput = input("Should deletion use a seed?\n1. Yes\nOther. No\n")
     gen = np.random.default_rng()
     if userInput == "1":
@@ -457,28 +457,20 @@ def deleteFromCol():
             print("Please use an int.")
             return
         gen = np.random.default_rng(seed)
-    
-    #userInput = input("How should data be deleted? ONLY 3 IMPLEMENTED CURRENTLY\n1. Missing at random\n2. Missing not at random\n3. Missing completely at random\n")
-    #if userInput == "1":
-    #    print()
-    #elif userInput == "2":
-    #    print()
-    #elif userInput == "3":
+
     table[colName] = table.apply(lambda x: x[colName] if gen.random() < 0.9 else np.nan, axis=1)
-    #else:
-    #    print("Option not recognized.")
     
     table.to_sql(name=tableName, if_exists="replace", con=conn, index=False)
-    print(table)
-    print(table.dtypes)
+    #print(table)
+    #print(table.dtypes)
     conn.commit()
     return
 
 def csvToTable(tableName: str, filePath: str):
     with open(filePath, newline='', encoding="utf8") as csvfile:
         data = pandas.read_csv(csvfile)
-        print(data)
-        print(data.dtypes)
+        #print(data)
+        #print(data.dtypes)
         for name, vals in data.items():
             if pandas.api.types.is_string_dtype(vals):
                 try:
@@ -487,8 +479,8 @@ def csvToTable(tableName: str, filePath: str):
                     pass
                 else:
                     data[name] = dateVals
-        print(data)
-        print(data.dtypes)
+        #print(data)
+        #print(data.dtypes)
         data.to_sql(name=tableName, if_exists="replace", con=conn, index=False)
     return
 
