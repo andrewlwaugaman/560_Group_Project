@@ -372,15 +372,18 @@ def sklearnToTable(dataset: int):
     tableName = ""
     data: pandas.DataFrame
     if dataset == 0:
+        tableName = "Iris"
+        data = sklearn.datasets.load_iris(as_frame=True).frame
+    elif dataset == 1:
         tableName = "Diabetes"
         data = sklearn.datasets.load_diabetes(as_frame=True).frame
-    elif dataset == 1:
+    elif dataset == 2:
         tableName = "Digits"
         data = sklearn.datasets.load_digits(as_frame=True).frame
-    elif dataset == 2:
+    elif dataset == 3:
         tableName = "Wine"
         data = sklearn.datasets.load_wine(as_frame=True).frame
-    elif dataset == 3:
+    elif dataset == 4:
         tableName = "Breast Cancer"
         data = sklearn.datasets.load_breast_cancer(as_frame=True).frame
     data.to_sql(name=tableName, if_exists="replace", con=conn, index=False)
@@ -391,24 +394,21 @@ def setUpExample():
         cursor.execute("DROP TABLE \'" + table[0] + "\'")
         conn.commit()
     userInput = input("Options:\n" + 
-                      "1. Mendota/Monona Days\n" + 
-                      "2. Iris Dataset\n" + 
-                      "3. Diabetes\n" + 
-                      "4. Digits\n" + 
-                      "5. Wine\n" + 
-                      "6. Breast Cancer\n")
+                      "1. Iris Dataset\n" + 
+                      "2. Diabetes\n" + 
+                      "3. Digits\n" + 
+                      "4. Wine\n" + 
+                      "5. Breast Cancer\n")
     if userInput == "1":
-        csvToTable("Ice Days", "./mendotaMonona.csv")
-    elif userInput == "2":
-        csvToTable("Iris", "./iris-3.csv")
-    elif userInput == "3":
         sklearnToTable(0)
-    elif userInput == "4":
+    elif userInput == "2":
         sklearnToTable(1)
-    elif userInput == "5":
+    elif userInput == "3":
         sklearnToTable(2)
-    elif userInput == "6":
+    elif userInput == "4":
         sklearnToTable(3)
+    elif userInput == "5":
+        sklearnToTable(4)
     else:
         print("Option not recognized.")
     return
